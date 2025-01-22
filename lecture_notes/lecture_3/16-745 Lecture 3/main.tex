@@ -1,0 +1,220 @@
+\documentclass[11pt]{article}
+
+\usepackage{url}
+\usepackage{multicol}
+\usepackage[english]{babel}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{wasysym}
+\usepackage{color}
+\usepackage{float}
+\usepackage{nomencl}
+\usepackage[title]{appendix}
+\makenomenclature
+\usepackage{pdfpages}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={Overleaf Example},
+    pdfpagemode=FullScreen,
+    }
+\title{16-745 Optimal Control Lecture 3}
+\author{Reid Graves} 
+
+\begin{document}
+\maketitle
+
+\section{Last Time}
+\begin{itemize}
+    \item Stability
+    \item Discrete Time Simulation
+    \item Forward/Backward Euler
+    \item RK4 (should be your go-to)
+\end{itemize}
+
+\section{Today}
+\begin{itemize}
+    \item Notation
+    \item Root Finding
+    \item Minimization
+\end{itemize}
+
+\section{Some Notation}
+\begin{itemize}
+    \item Given $f(x): \mathbb{R}^n\rightarrow\mathbb{R}$
+    \begin{align*}
+        \frac{\partial f}{\partial x}\in \mathbb{R}^{1\times n} \text{ is a \textbf{Row Vector}}
+    \end{align*}
+    Because if you write it in this format, then the chain rule works.
+    \item This is because $\frac{\partial f}{\partial x}$ is the linear operator mapping of $\Delta x$ into $\Delta f$:
+    \begin{align*}
+        f(x+\Delta x) &\approx f(x) + \frac{\partial f}{\partial x}\Delta x
+    \end{align*}
+    \item Similarly $g(y): \mathbb{R}^m\rightarrow \mathbb{R}^n$
+    \begin{align*}
+        \frac{\partial g}{\partial y} \in \mathbb{R}^{n\times m} \text{ because:}
+        \\
+        g(y + \Delta y) \approx g(y) + \frac{\partial g}{\partial y}\Delta y
+    \end{align*}
+    \item These conventions make the chain rule work:
+    \begin{align*}
+        f(g(y+\Delta y)) \approx f(g(y)) + \frac{\partial f}{\partial x}|_{g(y)}\frac{\partial g}{\partial y}|_y\Delta y
+    \end{align*}
+    \item For convenience, we will define:
+    \begin{align*}
+        \nabla f(x) &= \left(\frac{\partial f}{\partial x}\right)^T \in \mathbb{R}^{n\times 1} \quad\textbf{Column Vector}
+        \\
+        \nabla^2 f(x) &= \frac{\partial}{\partial x}(\nabla f(x)) = \frac{\partial^2 f}{\partial x^2} \in \mathbb{R}^{n\times n}
+        \\
+        f(x+\Delta x) &= f(x) + \frac{\partial f}{\partial x}\Delta x + \frac{1}{2}\Delta x^T \frac{\partial^2 f}{\partial x^2}\Delta x
+    \end{align*}
+\end{itemize}
+
+
+\section{Root Finding}
+\begin{itemize}
+    \item Given $f(x)$, find $x^*$ such that $f(x^*) = 0$
+\end{itemize}
+
+\subsection{Example: Equilibrium of a continuous time dynamics system}
+\begin{itemize}
+    \item Closely related: fixed point:
+    \begin{align*}
+        f(x^*) &= x^*
+    \end{align*}
+    (equilibrium of discrete time dynamics)
+\end{itemize}
+
+\subsection{Fixed-point Iteration}
+\begin{itemize}
+    \item Simplest solution method
+    \item If fixed point is stable, just "iterate the dynamics" until convergence
+    \item Only works if $x^*$ is a stable equilibrium point and if initial guess is in the basin of attraction
+    \item Can converge slowly (depends on $f$)
+\end{itemize}
+
+\subsection{Newton's Method}
+\begin{itemize}
+    \item Fit a linear approximation to $f(x)$:
+    \begin{align*}
+        f(x+\Delta x) &\approx f(x) + \frac{\partial f}{\partial x}|_x\Delta x
+    \end{align*}
+    \item Set the approximation to zero and solve for $\Delta x$:
+    \begin{align*}
+        f(x) + \frac{\partial f}{\partial x}\Delta x &= 0 \rightarrow \Delta x = \left(\frac{\partial f}{\partial x}\right)^{-1}f(x)
+    \end{align*}
+ \item Apply correction:
+ \begin{align*}
+     x \leftarrow x + \Delta x
+ \end{align*}
+ \item Repeat until convergence
+\end{itemize}
+\subsection{Example: Backward Euler}
+\begin{align*}
+    f(x_{n+1}, x_n, u_n) &= 0
+    \\
+    x_{n+1} &= x_n + hf(x_{n+1}) \text{ (Evaluate f at future time)}
+    \\
+    \rightarrow f(x_{n+1},x_n,u_n) &= x_{n+1} - x_n - hf(x_{n+1}) = 0
+\end{align*}
+\begin{itemize}
+    \item Very fast convergence with Newton (Quadratic)- Cancels out the first term in the Taylor expansion
+    \item Can get machine precision
+    \item Most expensive part is solving a linear system $\mathcal{O}(n^3)$ (why it isn't used in machine learning)
+    \item Can improve complexity by taking advantage of problem structure/sparsity (more later)
+\end{itemize}
+
+\section{Minimization}
+\begin{align*}
+    min_x f(x), \quad f(x): \mathbb{R}^n \rightarrow \mathbb{R}
+\end{align*}
+\begin{itemize}
+    \item If $f$ is smooth, $\frac{\partial f}{\partial x}|_{x^*} = 0$ at a local minimum
+    \item Now we have a root finding problem $grad f(x) = 0$
+    \begin{align*}
+        \Rightarrow \text{Apply Newton!}
+    \end{align*}
+    \begin{align*}
+        \nabla f(x+\Delta x) \approx \nabla f(x) + \frac{\partial}{\partial x}(\nabla(f(x))\Delta x &= 0
+        \\
+        \Rightarrow \Delta x &= -(\nabla^2 f(x)^{-1}\nabla f(x)
+        \\
+        x \leftarrow x + \Delta x
+    \end{align*}
+    Repeat until convergence
+    \item Intuition:
+    \begin{itemize}
+        \item Fit a quadratic approximation to $f(x)$
+        \item Exactly minimize approximation
+    \end{itemize}
+\end{itemize}
+\subsection{Example}
+\begin{align*}
+    min_x f(x) &= x^4 + x^3 - x^2 - x
+\end{align*}
+\begin{itemize}
+    \item Start at $1.0, -1.5, 0$ (0 maximized!)
+    \item Takeaway messages
+    \begin{itemize}
+        \item Newton is a \textbf{local root finding} method
+        \item will converge to the closest fixed point to the initial guess (min, max, saddle)
+    \end{itemize}
+    \item Sufficient conditions
+    \begin{itemize}
+        \item $\nabla f = 0$ "first order necessary condition" for a minimum, not a sufficient condition
+        \item Let's look at scalar case:
+        \begin{align*}
+            \Delta x &= -\left(\nabla^2f\right)^{-1}\nabla f
+        \end{align*}
+        \item $\nabla^2f$ is the "learning rate/step size"
+        \begin{align*}
+            \nabla^2 f > 0 \Rightarrow \text{ descent ( minimization)}
+            \\
+            \nabla^2 f <0 \Rightarrow \text{ ascent (maximization)}
+        \end{align*}
+        \item In $\mathbb{R}^n$, $\nabla^2f>0$, $\nabla^2f \in S_{++}^n$ \begin{align*}
+            \text{(Positive definite)} \Rightarrow \text{descent}
+        \end{align*}
+        \item if $\nabla^2 f>0$ everywhere $(\forall x)$ $\Rightarrow$ $f(x)$ is strongly convex
+        \begin{align*}
+            \Rightarrow \text{Can always sove with Newton}
+        \end{align*}
+        \item Usually not the case for hard/non-linear problems
+    \end{itemize}
+    \item Regularization:
+    \begin{itemize}
+        \item Practical solution to make sure we always minimize:
+        \begin{align*}
+            H \leftarrow \nabla^2 f
+            \\
+            \text{while } H \text{ not positive definite} 
+            \\
+            H \leftarrow H + \beta I \text{ Scalar hyperparameter } \beta>0
+            \\
+            \text{end}
+            \\
+            \Delta x &= -H^{-1}\nabla f
+            \\
+            x \leftarrow x + \Delta x
+        \end{align*}
+        \item Also called "damped newton" (shrinks steps)
+        \item Guarantees descent
+    \end{itemize}
+    \item Example:
+    \begin{itemize}
+        \item Regularizaiton makes sure we minimize
+        \item What about overshoot? (next time)
+    \end{itemize}
+\end{itemize}
+
+
+\end{document}
