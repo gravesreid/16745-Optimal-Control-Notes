@@ -1,0 +1,169 @@
+\documentclass[11pt]{article}
+
+\usepackage{url}
+\usepackage{multicol}
+\usepackage[english]{babel}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{wasysym}
+\usepackage{color}
+\usepackage{float}
+\usepackage{nomencl}
+\usepackage[title]{appendix}
+\makenomenclature
+\usepackage{pdfpages}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={Overleaf Example},
+    pdfpagemode=FullScreen,
+    }
+\title{16-745 Optimal Control Lecture 6}
+\author{Reid Graves} 
+
+\begin{document}
+\maketitle
+
+\section{Last Time}
+\begin{itemize}
+    \item Inequality Constraints
+    \item Interior-Point Methods
+\end{itemize}
+
+\section{Today}
+\begin{itemize}
+    \item Revisit regularization and line search
+    \item Control History
+    \item Deterministic Optimal Control
+\end{itemize}
+
+\section{Duality Regularization}
+\begin{itemize}
+    \item Given:
+    \begin{align*}
+        \text{min}_x f(x)
+        \\
+        s.t. \quad c(x) = 0
+    \end{align*}
+    \item We can theoretically turn this into:
+    \begin{align*}
+        \text{min}_x f(x) + P_\infty(c(x)), \quad P_\infty(x) &= \begin{cases}
+            0, c(x) = 0
+            \\
+            +\infty, c(x) \neq 0
+        \end{cases}
+    \end{align*}
+    \item Practically terrible, but we can get the same effect by solving:
+    \begin{align*}
+        \text{min}_x\text{max}_\lambda f(x) + \lambda^T c(x)
+    \end{align*}
+    \item Whenever $c(x)\neq 0$, inner problem blows up
+    \item Similar for inequalities:
+    \begin{align*}
+        \text{min}_x f(x)
+        \\
+        s.t. \quad c(x)\geq 0
+        \\
+        \text{min}_x f(x) + P_\infty^{-}(c(x))
+        \\
+        P_\infty^{-} &= \begin{cases}
+            0, c(x) \geq 0
+            \\
+            +\infty, c(x) < 0
+        \end{cases}
+        \\
+        \Rightarrow \text{min}_x \text{max}_{\lambda \geq 0} f(x) - \lambda^T c(x)
+    \end{align*}
+    \item Whenever $c(x)<0$, inner problem blows up 
+    \item Interpretation: KKT conditions define a saddle point in $(x,\lambda)$
+    \item KKT system should have dim($x$) positive eigenvalues, and dim($\lambda$) negative eigenvalues at an optimum (called ``quasi-definite")
+    \begin{align*}
+        \begin{bmatrix}
+            H + \beta I & C^T \\
+            C & -\beta I
+        \end{bmatrix}
+        \begin{bmatrix}
+            \Delta x
+            \\
+            \Delta \lambda
+        \end{bmatrix}
+        &=
+        \begin{bmatrix}
+            -\nabla_x L \\
+            -c(x)
+        \end{bmatrix}
+        \quad \beta >0
+    \end{align*}
+    \item Example:
+    \begin{itemize}
+        \item Still overshoot $\Rightarrow$ need line search
+    \end{itemize}
+\end{itemize}
+
+\section{Merit Function}
+\begin{itemize}
+    \item How do we do a line search on a root finding problem?
+    \begin{align*}
+        \text{find} \quad x^* \quad s.t. \quad c(x^*) &= 0
+    \end{align*}
+    \item Define scalar ``merit function" $P(x)$ that measures distance to the solution
+    \item Standard Choices:
+    \begin{itemize}
+        \item $P(x) = \frac{1}{2}c(x)^Tc(x) = \frac{1}{2}|c(x)|^2_2$
+        \item $P(x) = |c(x)|_1$ (any norm works)
+    \end{itemize}
+    \item Now just do Armijo on $P(x)$:
+    \begin{align*}
+        \alpha = 1&
+        \\
+        &\text{while} \quad P(x+\alpha\Delta x > P(x) + b\alpha\nabla P(x)^T\Delta x
+        \\
+        &\quad\quad\alpha \leftarrow \theta\alpha
+        \\
+        &\text{end}
+        \\
+        x &\leftarrow x + \alpha \Delta x
+    \end{align*}
+    \item How about constrained optimization?
+    \begin{align*}
+        \text{min}_x f(x)
+        \\
+        s.t. \quad c(\infty) \geq 0,d (x) = 0
+        \\
+        L(x,\lambda,\mu) &= f(x) - \lambda^T c(x) + \mu^Td(x)
+    \end{align*}
+    \item Lots of options for merit functions:
+    \begin{align*}
+        P(x,\lambda,\mu) &= \frac{1}{2}|r_{kkt}(x,\lambda,\mu)|^2_2
+        \\
+        \text{KKT residual} \quad \begin{bmatrix}
+            \nabla_x L \\
+            \text{min}(0,c(x))
+            \\
+            d(x)
+        \end{bmatrix}
+    \end{align*}
+    \begin{align*}
+        P(x,\lambda,\mu) &= f(x) + P\left| \begin{bmatrix}
+            min(0,C(x) \\
+            d(x)
+        \end{bmatrix}\right|_1
+    \end{align*}
+\end{itemize}
+
+
+
+
+
+
+
+\end{document}
