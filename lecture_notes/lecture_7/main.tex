@@ -1,0 +1,236 @@
+\documentclass[11pt]{article}
+
+\usepackage{url}
+\usepackage{multicol}
+\usepackage[english]{babel}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{wasysym}
+\usepackage{color}
+\usepackage{float}
+\usepackage{nomencl}
+\usepackage[title]{appendix}
+\makenomenclature
+\usepackage{pdfpages}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={Overleaf Example},
+    pdfpagemode=FullScreen,
+    }
+\title{16-745 Optimal Control Lecture 7}
+\author{Reid Graves} 
+
+\begin{document}
+\maketitle
+
+\section{Last Time}
+\begin{itemize}
+    \item Regularization + Duality
+    \item Merit Functions + Line Search
+    \item Control History
+\end{itemize}
+
+\section{Today}
+\begin{itemize}
+    \item Deterministic Optimal Control
+    \item Pontryagin 
+    \item LQR
+\end{itemize}
+
+\section{Deterministic Optimal Control}
+\begin{itemize}
+    \item Continuous Time:
+    \begin{align*}
+        \min_{x(t),u(t)} \quad J(x(t),u(t))&= \int_{t_0}^{t_f}l(x(t),u(t))dt + l_F(x(t_F))
+    \end{align*}
+    Cost function is $J$, Stage cost is $l(x(t),u(t))$ and is a function of  the state and input trajectories: $x(t),u(t)$, the terminal cost is $l_F$
+    \begin{align*}
+        s.t. \quad \dot{x}(t) &= f(x(t),u(t))
+    \end{align*}
+    $\dot{x}$ is dynamics constraint. Usually have other constraints too. This is the optimal control problem. $x,u$ are trajectories. 
+    \item This is an ``infinite-dimensional" optimization problem. The answer is a single trajectory input. Solution is not a feedback policy.
+    \item Solutions are open-loop trajectories
+    \item There are a handful of problems with analytical solutions- like LQR, but not many
+    \item We will focus on the discrete-time setting
+\end{itemize}
+\subsection{Discrete Time}
+\begin{align*}
+    \min_{x_{1:N},u_{1:N-1}} \quad J(x_{1:N}, u_{1:N-1}) &= \sum_{n=1}^{N-1} l(x_k,u_k) + l_F(x_N)
+    \\
+    s.t. \quad x_{k+1} &= f(x_k,u_k)
+    \\
+    u_{min}&\leq u_k \leq u_{max} \quad \forall \text{ }k\text{ torque limits}
+    \\
+    c(x_n) &\geq 0 \quad \forall \text{ } k \text{ obstacle/safety constraints}
+\end{align*}
+\begin{itemize}
+    \item This is a finite-dimonsional problem
+    \item Samples $x_k,u_k$ are often called ``knot points"
+    \item Continuous $\rightarrow$ discrete uses integration (e.g. Runge-Kutta)
+    \item Discrete $\rightarrow$ continuous uses interpolation- common to use cubic splines
+\end{itemize}
+
+\subsection{Pontryagin's Minimum Principle}
+\begin{itemize}
+    \item Also called the ``Maximum Principle" if you maximize a reward instead of a cost
+    \item It is the First-Order Necessary conditions for a deterministic optimal control problem
+    \item In discrete time, just a special case of KKT conditions
+    \item Given:
+    \begin{align*}
+        \min_{x_{1:N},u_{1:N-1}} \quad \sum_{k=1}^{N-1} l(x_k,u_k) + l_F(x_N)
+        \\
+        s.t. \quad x_{k+1} &= f(x_k,u_k)
+    \end{align*}
+    \item We can form the Lagrangian:
+    \begin{align*}
+        L &= \sum_{k=1}^{N-1} l(x_k,u_k) + \lambda_{n+1}^T(f(x_k,u_k) - x_{k+1}) + l_F(x_N) 
+    \end{align*}
+    \item This result is usually stated in terms of the ``Hamiltonian"
+    \begin{align*}
+        H(x,u,\lambda) &= l(x,u) + \lambda^Tf(x,u)
+    \end{align*}
+    \item Plug it into L:
+    \begin{align*}
+        L &= H(x_1,u_1,\lambda_2) + \left[\sum_{k=2}^{N-1}H(x_k,u_k,\lambda_{k+1} - \lambda_k^Tx_k \right] + l_F(x_N) - \lambda_N^Tx_N
+    \end{align*}
+    \item Take derivatives w.r.t. $x,\lambda$:
+    \begin{align*}
+        &\frac{\partial L}{\partial \lambda_k} = \frac{\partial H}{\partial \lambda_k} - x_{k+1} = f(x_k,u_k) - x_{k+1} = 0
+        \\
+        &\frac{\partial L}{\partial x_k} = \frac{\partial H}{\partial x_k} - \lambda_k^T = \frac{\partial l}{\partial x_k} + \lambda_{k+1}^T \frac{\partial f}{\partial x_k} - \lambda_k^T = 0
+        \\
+        &\frac{\partial L}{\partial x_N} - \frac{\partial l_F}{\partial x_N} - \lambda_N^T = 0 
+     \end{align*}
+     \item For $u$ we write the min explicitly to handle torque limits:
+     \begin{align*}
+         u_k &= \text{arg}\min_u H(x_k, u, \lambda_{k+1})
+         \\
+        & s.t. \quad u \in \mathcal{U} \quad\text{Shorthand for ``in feasible set"}
+     \end{align*}
+     \item In summary:
+     \begin{align*}
+         x_{k+1} &= \nabla_\lambda H(x_k,u_k,\lambda_{k+1})
+         \\
+         \lambda_k &= \nabla_x H(x_k,u_k,\lambda_{k+1})
+         \\
+         u_k &= \text{arg}\min_u H(x_k, u,\lambda_{k+1})
+         \\
+         &\quad s.t. \quad u\in \mathcal{U}
+         \\
+         \lambda_N &= \frac{\partial l_F}{\partial x_N}
+     \end{align*}
+     \item These can be stated in continuous time:
+     \begin{align*}
+         \dot{x} &= \nabla_\lambda H(x,u,\lambda)
+         \\
+         -\dot{\lambda} &= \nabla_xH(x,u,\lambda)
+         \\
+         u &= \text{arg}\min_u H(x,u,\lambda)
+         \\
+         \quad &s.t. \quad u \in \mathcal{U}
+         \\
+         \lambda(t_F) &= \frac{\partial l_F}{\partial x}
+     \end{align*}
+\end{itemize}
+
+\subsection{Some Notes}
+\begin{itemize}
+    \item Historically many algorithms were based on integrating ODEs forward + backward to do gradient descent
+    \item These are called ``indirect" and/or ``shooting" methods
+    \item In continuous time $\lambda(t)$ is called ``costate" trajectory
+    \item These methods have largely fallen out of favor as computers have improved.
+\end{itemize}
+
+\section{LQR Problem}
+Linear Quadratic Regulator (LQR)
+\begin{align*}
+    \min_{x_{1:N},u_{1:N-1}} \quad J &= \sum_{k=1}^{N-1} \frac{1}{2}x_k^TQ_kx_k + \frac{1}{2} u_k^TR_ku_k + \frac{1}{2}x_k^TQ_kx_k
+    \\
+    &\quad s.t. \quad x_{k+1} = A_kx_k + B_ku_k
+    \\
+    Q&\geq 0, \quad R>0
+\end{align*}
+\begin{itemize}
+    \item Can (locally) approximate many nonlinear problems
+    \item Computationally Tractable
+    \item Many extensions e.g. infinite horizon, stochastic, etc.
+    \item ``Time invariant" if $A_k = A$, $B_k=B$, $Q_k=Q$, $R_k=R$ $\forall k$. Time varying otherwise
+\end{itemize}
+
+\subsection{LQR with Indirect Shooting:}
+\begin{align*}
+    x_{k+1} &= \nabla_\lambda H(x_k,u_k,\lambda_{k+1}) = Ax_k+Bu_k
+    \\
+    \lambda_k &= \nabla_x H(x_k,u_k,\lambda_k) = Qx_k + A^T\lambda_{k+1}
+    \\
+    \lambda_N &= Q_Nx_N
+    \\
+    u_k &= \nabla_u H(x_k,u_k,\lambda_{k+1}) = 0 \Rightarrow -R^{-1}B^T\lambda_{k+1}
+\end{align*}
+\begin{itemize}
+    \item Procedure
+    \begin{enumerate}
+        \item Start with initial guess $u_{1:N-1}$
+        \item Simulate/rollout to get $x_{1:N}$
+        \item Backward pass to get $\lambda, \Delta u$
+        \item Rollout with line search on $\Delta u$
+        \item Go to 3. until convergence
+    \end{enumerate}
+\end{itemize}
+\subsection{Example}
+\begin{itemize}
+    \item ``Double Integrator"
+    \begin{align*}
+        \dot{x} &=
+        \begin{bmatrix}
+            \dot{q} \\
+            \ddot{q}
+        \end{bmatrix}
+        =
+        \begin{bmatrix}
+            0 & 1 \\
+            0 & 0
+        \end{bmatrix}
+        \begin{bmatrix}
+            q \\
+            \dot{q}
+        \end{bmatrix}
+        + 
+        \begin{bmatrix}
+            0 \\
+            1
+        \end{bmatrix}
+        u
+    \end{align*}
+    \item Think of this as a brick sliding on ice with no friction
+    \begin{align*}
+        x_{k+1} &= \begin{bmatrix}
+            1 & h \\
+            0 & 1
+        \end{bmatrix}
+        \begin{bmatrix}
+            q_k \\
+            \dot{q}_k
+        \end{bmatrix}
+        + 
+        \begin{bmatrix}
+            \frac{1}{2}h^2 \\
+            h
+        \end{bmatrix}
+        u_k
+        \\
+        x_{n+1} &= Ax + Bu
+    \end{align*}
+\end{itemize}
+
+\end{document}
