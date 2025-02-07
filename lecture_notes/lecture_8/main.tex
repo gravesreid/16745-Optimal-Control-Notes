@@ -1,0 +1,281 @@
+\documentclass[11pt]{article}
+
+\usepackage{url}
+\usepackage{multicol}
+\usepackage[english]{babel}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{wasysym}
+\usepackage{color}
+\usepackage{float}
+\usepackage{nomencl}
+\usepackage[title]{appendix}
+\makenomenclature
+\usepackage{pdfpages}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={Overleaf Example},
+    pdfpagemode=FullScreen,
+    }
+\title{16-745 Optimal Control Lecture 8}
+\author{Reid Graves} 
+
+\begin{document}
+\maketitle
+
+\section{Last Time}
+\begin{itemize}
+    \item Deterministic Optimal Control
+    \item Pontryagin
+    \item Indirect Shooting
+\end{itemize}
+
+\section{Today}
+\begin{itemize}
+    \item LQR Problem
+    \item LQR as a QP
+    \item Riccati Recursion
+\end{itemize}
+
+\section{LQR Problem}
+\begin{align*}
+    \min_{x_{1:N},u_{1:N-1}} \quad J &= \sum_{k=1}^{N-1}\frac{1}{2}x_k^TQ_kx_k + \frac{1}{2}u_k^TRu_k + \frac{1}{2}x_N^TQ_Nx_N
+    \\
+    s.t. \quad x_{k+1} &= A_kx_k + B_ku_k
+    \\
+    Q_k &\geq 0, \quad R>0
+\end{align*}
+$R$ needs to be greater than 0 for problem to be well posed. 
+
+\subsection{Example}
+\begin{itemize}
+    \item ``Double Integrator"
+    \begin{align*}
+        \dot{x} &= \begin{bmatrix}
+            \dot{q} \\
+            \ddot{q}
+        \end{bmatrix}
+        =
+        \begin{bmatrix}
+            0 & 1 \\
+            0 & 0 
+        \end{bmatrix}
+        \begin{bmatrix}
+            q \\
+            \dot{q}
+        \end{bmatrix}
+        + \begin{bmatrix}
+            0 \\
+            1
+        \end{bmatrix}
+        u
+    \end{align*}
+    \item Think of this as a brick sliding on ice (no friction)
+    \begin{align*}
+        x_{k+1} &= 
+        \begin{bmatrix}
+            1 & h \\
+            0 & 1
+        \end{bmatrix}
+        \begin{bmatrix}
+            q_k \\
+            \dot{q}_k
+        \end{bmatrix}
+        +
+        \begin{bmatrix}
+            \frac{1}{2}h^2 \\
+            h
+        \end{bmatrix}
+        u_k
+        \\
+        x_{k+1} &= Ax_k + Bu_k
+    \end{align*}
+    Where $h$ is the timestep
+\end{itemize}
+
+\section{LQR as a QP}
+\begin{itemize}
+    \item Assume $x_1$ (initial state) is given (not a decision variable)
+    \item Define 
+    \begin{align*}
+        z &= 
+        \begin{bmatrix}
+            u_1 \\
+            x_2 \\
+            u_2 \\
+            x_3 \\
+            \vdots \\
+            x_N
+        \end{bmatrix}
+    \end{align*}
+    \begin{align*}
+        H &= 
+        \begin{bmatrix}
+            R_1  & & & & \\
+            & Q_2 & & 0&  \\
+            & & R_2 & & \\
+            & 0& & \ddots & \\
+            & & & & Q_N
+        \end{bmatrix}
+    \end{align*}
+    such that $J = \frac{1}{2}Z^THZ$
+    \item Define $C$ and $d$:
+    \begin{align*}
+        &\begin{bmatrix}
+            B_1 & -I & 0 & \dots & \dots & & 0 \\
+            0 & A_2 & B_2 & -I & 0 & \dots & 0 \\  
+            & & & \ddots & & & \\
+            & & & & A_{N-1} & B_{N-1} & -I
+        \end{bmatrix}
+        \begin{bmatrix}
+            u_1 \\
+            x_2 \\
+            u_2 \\
+            \vdots \\
+            x_N
+        \end{bmatrix}
+        =
+        \begin{bmatrix}
+            -Ax_1 \\
+            0 \\
+            \vdots \\
+            0
+        \end{bmatrix}
+        \\
+        &\Rightarrow Cz = d
+    \end{align*}
+    \item Now we can write LQR as a standard QP:
+    \begin{align*}
+        \min_z \quad \frac{1}{2}z^THz
+        \\
+        s.t. \quad Cz &= d
+    \end{align*}
+    \item The Lagrangian of this QP is:
+    \begin{align*}
+        L(z,\lambda) &= \frac{1}{2}z^THz + \lambda^T[Cz-d]
+    \end{align*}
+    \item  KKT conditions:
+    \begin{align*}
+        \nabla_zL &= Hz + C^T\lambda = 0
+        \\
+        \nabla_\lambda L &= Cz-d = 0
+        \\
+        \Rightarrow \begin{bmatrix}
+            H & C^T \\
+            C & 0
+        \end{bmatrix}
+        \begin{bmatrix}
+            z \\
+            \lambda
+        \end{bmatrix}
+        &=
+        \begin{bmatrix}
+            0 \\
+            d
+        \end{bmatrix}
+    \end{align*}
+    \item We get the exact solution by solving one linear system!
+\end{itemize}
+\subsection{Example}
+\begin{itemize}
+    \item Much better than shooting!
+\end{itemize}
+
+\subsection{A closer look at the LQR QP}
+\begin{itemize}
+    \item The KKT system for LQR is very sparse (lots of zeros in matrix) and has lots of structure:
+    \begin{align*}
+    &\begin{bmatrix}
+        R & & & & & B^T & & & &  \\
+        & Q & & & & I & A^T & &  \\
+        & & R & & & & & B^T & \\
+        & & & Q & & & & -I& A^T\\
+        & & & & R & & & & B^T\\
+        & & & & & Q_N & & & -I\\
+        B & -I & & & & & & \\
+        & A & B & -I& & & & & 0 \\
+        & & & A & B & -I & & &
+    \end{bmatrix}
+         \begin{bmatrix}
+            u_1 \\
+            x_2 \\
+            u_2 \\
+            x_3 \\
+            u_3 \\
+            x_4 \\
+            \lambda_2 \\
+            \lambda_3 \\
+            \lambda_4
+        \end{bmatrix}
+    =
+    \begin{bmatrix}
+        \\
+        0
+        \\
+        \\
+        \\
+        \\
+        -Ax \\
+        0 \\
+        0
+    \end{bmatrix}
+    \\
+   & Q_Nx_4 - \lambda_4 = 0 \Rightarrow \lambda_4 = Q_Nx_4
+    \\
+   & Ru_3 + B^T\lambda_4 = Ru_3 + B^TQ_Nx_4 = 0 \text{ Plug in dynamics for }x_4
+    \\
+   & \Rightarrow Ru_3 + B^TQ_N(Ax_3 + Bu_3) = 0
+    \\
+   & \Rightarrow u_3 = -(R + B^TQ_NB)^{-1}B^TQ_NAx_3 \text{ call big matrix before }x_3 \text{ }K_3 \\
+   & Qx_3 - \lambda_3 + A^T\lambda^4 = 0 \text{ Plug in }\lambda_4
+    \\
+  &  Qx_3 - \lambda_3 + A^TQ_Nx_4 = 0 \text{ Plug in dynamics}
+    \\
+   & Qx_3 - \lambda_3 + A^TQ_N(Ax_3 + Bu_3) \text{ plug in } u_3=-K_3x_3
+    \\
+   & \Rightarrow \lambda_3 = (Q+A^TQ_N(A-BK_3))x_3 \text{ Call big matrix before }x_3 \text{ } P_3
+    \end{align*}
+    \item Now we have a recursion for $K$ and $P$:
+    \begin{align*}
+        P_N &= Q_N \\
+        K_k &= (R+B^TP_{k+1}B)^{-1}B^TP_{n+1}A
+        \\
+        P_k &= Q + A^TP_{n+1}(A-BK_k)
+    \end{align*}
+    \item This is called the Riccati equation/recursion
+    \item We can solve the QP by doing a backward Riccati pass followed by a forward rollout to compute $x_{1:N}$ and $u_{1:N-1}$
+    \item General (dense) QP has complexity $O([N(n+m)]^3)$, Horizon $N$, state dimension $n$, control dim $m$
+    \item Riccati solution is $O(N(n+m)^3)$
+\end{itemize}
+\subsection{Example}
+\begin{itemize}
+    \item Riccati exactly matches QP 
+    \item Feedback policy lets us change $x_0$ and reject noise/disturbances
+\end{itemize}
+
+\subsection{Infinite Horizon LQR}
+\begin{itemize}
+    \item For time invariant LQR converge to constants
+    \item For stabilization problems we usually use constant $K$
+    \item Backward recursion for $P$:
+    \begin{align*}
+        k_k &= (R+B^TP_{n+1}B)^{-1}B^TP_{n+1}A
+        \\
+        P_k &= Q + A^TP_{k+1} (A+BK_k)
+    \end{align*}
+    \item Infinite horizon limit $\Rightarrow P_{k+1} = P_k = R_\text{inf}$ $\Rightarrow$
+\end{itemize}
+
+
+
+\end{document}
