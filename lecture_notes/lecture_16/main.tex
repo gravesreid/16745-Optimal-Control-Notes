@@ -44,7 +44,7 @@
     \item Quadrotor Control
 \end{itemize}
 
-
+\noindent\rule{\textwidth}{0.4pt} % Horizontal line
 \section{LQR with Quaternions}
 
 \begin{itemize}
@@ -52,9 +52,15 @@
     \item We'll apply our quaternion differentiation tricks to LQR to make this work
     \item Given a reference $\bar{x}_k, \bar{u}_k$ for a discrete time system $f(x_k,u_k):$
     \begin{align*}
-        \bar{x}_{k+1} + \Delta x_{k+1} &= f(\bar{x}_k + \Delta x_k, \bar{u}_k + \Delta u_k)
+        \bar{x}_{k+1} + \Delta x_{k+1} &\approx f(\bar{x}_k + \Delta x_k, \bar{u}_k + \Delta u_k)
         \\
-        & xf(\bar{x}_k,\bar{u_k}) + \underbrace{A_k}_{\textcolor{cyan}{\frac{\partial f}{\partial x}}} \Delta x_k + \underbrace{B_k}_{\textcolor{cyan}{\frac{\partial f}{\partial u}}}\Delta u_k
+        &\text{First order Taylor expansion:} 
+        \\
+        &\approx f(\bar{x}_k,\bar{u_k}) + \underbrace{A_k}_{\textcolor{cyan}{\frac{\partial f}{\partial x}}} \Delta x_k + \underbrace{B_k}_{\textcolor{cyan}{\frac{\partial f}{\partial u}}}\Delta u_k
+        \\
+        \bar{x}_{k+1} &= f(\bar{x}_k,\bar{u_k})\\ 
+        \\
+        \Delta x_{k+1} &= \underbrace{A_k}_{\textcolor{cyan}{\frac{\partial f}{\partial x}}} \Delta x_k + \underbrace{B_k}_{\textcolor{cyan}{\frac{\partial f}{\partial u}}}\Delta u_k
     \end{align*}
     \item For the quaternion part of the state, we apply the attitude Jacobian to convert $\Delta \rightarrow \phi \in \mathbb{R}^3$:
 \begin{align*}
@@ -62,7 +68,7 @@
     \\
     & \hspace{10mm}r  \quad\textcolor{cyan}{x[1:3]} \\
     & \hspace{10mm}q  \quad\textcolor{cyan}{x[4:7]}\\
-    & \hspace{10mm}\theta  \quad\textcolor{cyan}{x[8:n]} \\
+    & \hspace{10mm}\theta  \quad\textcolor{cyan}{x[8:n]\text{ (joint angles)}} \\
     & \hspace{12mm} \vdots
 \end{align*}
 \begin{align*}
@@ -91,6 +97,7 @@
     \end{bmatrix}
     + E^T(\bar{x}_{k+1})B_k\Delta u_k
 \end{align*}
+Since the B matrix is multiplied by controls, it doesn't need a Jacobian transform on the right. But since it's output is a state, it needs a Jacobian transform on the left.
 \item Once we have these ``reduced" Jacobians $\tilde{A}_k, \tilde{B}_k$:
 \begin{align*}
     \tilde{A}_k &= E(\bar{x}_{k+1})^TA_kE(\bar{x}_k) & \tilde{B}_k&= E^T(\bar{x}_{k+1})B_k
@@ -111,13 +118,14 @@ We compute the LQR controller as usual.
 \subsection{Computing error/delta rotations}
 \begin{itemize}
     \item Many possible conventions
-    \item We will write it as rotation from body frame $B$ to the reference/desired body fram $R$:
+    \item We will write it as rotation from body frame $B$ to the reference/desired body frame $R$. We want to have the rotation from the body frame to the inertial frame:
     \begin{align*}
         \Rightarrow \underbrace{^NQ^B}_{\textcolor{cyan}{Q}} &= \underbrace{^NQ^R}_{\textcolor{cyan}{\bar{Q}}}\underbrace{^RQ^B}_{\textcolor{cyan}{\Delta Q}} &\Rightarrow \underbrace{(^NQ^R)^{-1}{^NQ^B}}_{\textcolor{cyan}{\bar{Q}^TQ}} &= \underbrace{^RQ^B}_{\textcolor{cyan}{\Delta Q}} 
     \end{align*}
+    $Q$ is Inertial frame, $\bar{Q}$ is the frame we want, and $\Delta Q$ is the error
     \item Using quaternions
     \begin{align*}
-        \Delta q &= \bar{q}^\dagger * q &= L^T(\bar{q})q
+        \Delta q &= \bar{q}^\dagger * q = L(\bar{q})^Tq
     \end{align*}
 \end{itemize}
 
@@ -142,15 +150,15 @@ We compute the LQR controller as usual.
 
     \item Kinematics
     \begin{align*}
-        ^N\dot{r} &= ^Nv = Q \ ^Bv \\
+        ^N\dot{r} &= \ ^Nv = Q \ ^Bv \\
         \dot{q} &= \frac{1}{2}q*\hat{w} = \frac{1}{2}L(q)H \ ^B\omega = \frac{1}{2}G(q)\ ^B\omega
     \end{align*}
     \item Translation Dynamics 
     \begin{align*}
         \underbrace{m \ ^N\dot{v}}_{\textcolor{cyan}{\text{need to rotate into }B \text{ frame}}} &= \ ^NF \leftarrow \textcolor{cyan}{\text{total force}}
         \\
-        ^Nv &= Q \ ^Bv \Rightarrow ^N\dot{v} = \underbrace{\dot{Q}}_{\textcolor{cyan}{Q\hat{\omega}}} ^Bv + Q\ ^B\dot{v} = Q\hat{\omega} \ ^Bv + Q \ ^B\dot{v} \\
-        &\Rightarrow ^B\dot{v} = \overbrace{Q^T\ ^N\dot{v}}^{\textcolor{cyan}{\text{rotate into }B\text{ frame}}} - \ ^B\omega\times \ ^Bv \textcolor{cyan}{\leftarrow \text{ extra term from spin}} \\
+        ^Nv &= Q \ ^Bv \Rightarrow ^N\dot{v} = \underbrace{\dot{Q}}_{\textcolor{cyan}{Q\hat{\omega}}}\ ^Bv + Q\ ^B\dot{v} = Q\hat{\omega} \ ^Bv + Q \ ^B\dot{v} \\
+        &\Rightarrow ^B\dot{v} = \overbrace{Q^T\ ^N\dot{v}}^{\textcolor{cyan}{\text{rotate into }B\text{ frame}}} - \underbrace{\ ^B\omega\times \ ^Bv}_ {\textcolor{cyan}{ \text{ extra term from spin}}} \\
         & \Rightarrow ^B\dot{v} = \frac{1}{m} \ ^BF - \ ^B\omega\times \ ^Bv \\
         ^BF &= Q^T\begin{bmatrix}
             0 \\
