@@ -1,0 +1,232 @@
+\documentclass[11pt]{article}
+
+\usepackage{url}
+\usepackage{multicol}
+\usepackage[english]{babel}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{wasysym}
+\usepackage{color}
+\usepackage{float}
+\usepackage{nomencl}
+\usepackage[title]{appendix}
+\makenomenclature
+\usepackage{pdfpages}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={Overleaf Example},
+    pdfpagemode=FullScreen,
+    }
+\title{16-745 Optimal Control Lecture 18}
+\author{Reid Graves} 
+
+\begin{document}
+\maketitle
+
+\section*{Last Time}
+\begin{itemize}
+    \item Hybrid Methods for legged locomotion
+\end{itemize}
+
+\section*{Today}
+\begin{itemize}
+    \item  Review: Convex vs Non-Convex Optimization
+    \item Iterative Learning Control
+\end{itemize}
+
+\section*{Convex vs. Non-convex Optimization}
+\begin{itemize}
+    \item Convex Optimization:
+    \begin{itemize}
+        \item Minimize a \textbf{convex objective} function over a \textbf{convex set} (convex constraints.
+        \item Generally means linear equalities and linear and/or conic inequalities.
+    \end{itemize}
+    \item Non-Convex Optimization
+    \begin{itemize}
+        \item \textbf{Everything else}
+    \end{itemize}
+\end{itemize}
+\begin{table}[H]
+    \centering
+    \begin{tabular}{c|c|c}
+         & Convex & Non-Convex \\
+         \hline
+       Need a Good initial guess  & \textcolor{red}{X} & \textcolor{green}{\checkmark} \\
+       \hline
+       Global optimality guarantee & \textcolor{green}{\checkmark} & \textcolor{red}{X} \\
+       \hline
+       Local convergence guarantee & \textcolor{green}{\checkmark} & \textcolor{red}{X} \\ 
+       \hline
+       Infeasibility Certificate & \textcolor{green}{\checkmark} & \textcolor{red}{X} \\ 
+       \hline
+       Bounded solution time & \textcolor{green}{\checkmark} & \textcolor{red}{X} \\
+    \end{tabular}
+\end{table}
+
+\subsection*{What happens when our model has errors?}
+\begin{itemize}
+    \item Models are approximate 
+    \item Simpler models are often preferred even if they're less accurate
+    \item Feedback (e.g. LQR/MPC) can often compensate for model errors.
+    \item Sometimes that isn't enough (e.g. very tight constraints, performance, safety).
+\end{itemize}
+    \subsubsection*{Several options:}
+    \begin{itemize}
+    \item improve the model:
+    \begin{enumerate}
+        \item \textbf{Parameter Estimation:} Classical ``System ID"/``grey-box" modeling. Fit e.g. masses, lengths, etc. in your model from data
+        \begin{itemize}
+            \item \textcolor{green}{+ Very sample efficient}
+            \item \textcolor{green}{+ Generalizes well}
+            \item \textcolor{red}{- assumes model structure}
+        \end{itemize}
+        \item \textbf{Learn Model:} Fit a generic function approximator to the full dynamics or residual. Classical ``black-box" modeling/system ID
+        \begin{itemize}
+            \item \textcolor{green}{+ Doesn't assume model structure}
+            \item \textcolor{green}{+ Generalizes}
+            \item \textcolor{red}{- not sample efficient. Requires lots of data}
+        \end{itemize}
+    \end{enumerate}
+        \item Improve the controller
+        \begin{enumerate}
+        \item \textbf{Learn a policy:} Standard model-free RL approach: Optimize a function approximation of the controller.
+        \begin{itemize}
+            \item \textcolor{green}{+ makes few assumptions}
+            \item \textcolor{red}{- Doesn't generalize}
+            \item \textcolor{red}{- Not sample efficient. Requires lots of ``rollouts"}
+        \end{itemize}
+        \item \textbf{``Transfer"} Assume we have a reference trajectory computed with a nominal model. Improve it with data from the real system.
+        \begin{itemize}
+            \item \textcolor{green}{+ Makes few assumptions}
+            \item \textcolor{red}{- Assumes a decent prior model}
+            \item \textcolor{red}{- Doesn't generalize (task specific)}
+            \item \textcolor{green}{+ Very sample efficient}
+        \end{itemize}
+    \end{enumerate}
+    \end{itemize}
+
+
+\section*{Iterative Learning Control (ILC)} 
+\begin{itemize}
+    \item Can think of this as a very specialized policy gradient method on the policy class:
+    \begin{align*}
+        u_k(\bar{u}_k) &= \underbrace{\bar{u}_k}_{\textcolor{cyan}{\text{reference inputs}}} - \underbrace{K_k(x_k-\bar{x}_k)}_{\textcolor{cyan}{\text{can be any tracking controller}}}
+    \end{align*}
+    *We only update $\bar{u}_k$
+    \item Can think of this as SQP where we get the RHS vector from a rollout on the real system.
+    \item Assume we have a reference trajectory $\bar{x}$, $\bar{u}$ that we want to track:
+    \begin{align*}
+        \min_{x_{1:N},u_{1:N-1}} \quad J &= \sum_{n=1}^{N-1}\frac{1}{2}(x_k-\bar{x}_k)^TQ(x_k-\bar{x}_k) + \frac{1}{2}(u_k-\bar{u}_k)^TR(u_k-\bar{u}_k) + \frac{1}{2}(x_N - \bar{x}_N)^TQ_N(x_N-\bar{x}_N)
+        \\
+        & s.t. \quad x_{k+1} = f(x_k,u_k)
+    \end{align*}
+    \item The KKT system for this problem looks like:
+    \begin{align*}
+        \begin{bmatrix}
+            H & C^T \\
+            C & 0
+        \end{bmatrix}
+        \begin{bmatrix}
+            \Delta z \\
+            \lambda
+        \end{bmatrix}
+        &=
+        \begin{bmatrix}
+            -\nabla J \\
+            -c(z)
+        \end{bmatrix}
+    \end{align*}
+    Where:
+    \begin{align*}
+        \Delta z &=
+        \begin{bmatrix}
+            \Delta x_1 \\
+            \Delta u_1 \\
+            \vdots \\
+            \Delta x_N
+        \end{bmatrix}
+        &
+        c(z) &= 
+        \underbrace{\begin{bmatrix}
+            \vdots \\
+            f(x_k,u_k) - x_{k+1}
+            \\
+            \vdots
+        \end{bmatrix}}_{\textcolor{cyan}{\text{nominal dynamics model}}}
+        & 
+        C &= \frac{\partial c}{\partial z}
+    \end{align*}
+    \begin{align*}
+        H &= \begin{bmatrix}
+            Q & & & \\
+            & R & & \\
+            & & \ddots & \\
+            & & & Q_N
+        \end{bmatrix}
+        \textcolor{cyan}{\leftarrow \text{Gauss-newton hessian}}
+    \end{align*}
+    \item \textbf{Two important observations:}
+    \begin{enumerate}
+        \item If we do a rollout on the real system, $c(z) = 0$ always (for the true dynamics)
+        \item Since we know J, given $x_k,u_k$ from rollout, we can compute $\nabla J$
+    \end{enumerate}
+    \item Now we have RHS vector from the KKT system
+    \item We also know H from the cost
+    \item We can compute $C = \frac{\partial c}{\partial z}$ using $x_k,u_k$ and the nominal model
+    \item However, since our nominal model is approximate and assuming $x_k,u_k$ is already close to $\bar{x},\bar{u}$, we can just use $C = \frac{\partial c}{\partial z}|_{\bar{x},\bar{u}}$, which can be computed offline.
+    \item Now just solve KKT system for $\Delta z$, update $\bar{u}\leftarrow \bar{u}+\Delta u$ and repeat
+    \item Can easily add inequality constraints (e.g., torque limits) and solve a QP.
+\end{itemize}
+
+\subsection*{ILC algorithm:}
+\begin{itemize}
+    \item Given nominal trajectory $\bar{x},\bar{u}$
+    \begin{align*}
+        \text{do:} &
+        \\
+        & \quad x_{1:N},u_{1:N-1} \leftarrow \underbrace{rollout(\bar{x}_0,\bar{u})}_{\textcolor{cyan}{\text{on real system}}} \\
+        & \quad u_{1:N-1} \textcolor{cyan}{\text{ can be different from }\bar{u} \text{ due to tracking controller}} \\
+        \text{\textcolor{cyan}{This is a QP:}} \\
+        & \quad\Delta x, \Delta u \leftarrow \text{argmin } J(\Delta x, \Delta u)
+        \\
+        & \hspace{20mm} s.t. \Delta x_{k+1} = A_k\Delta x + B_k \Delta u_k \\
+        & \hspace{25mm} u_{min} \leq u_k\leq u_{max}
+        \\
+        & \quad \bar{u}\leftarrow \bar{u} + \Delta u
+        \\
+        & \text{while} \underbrace{||x_N - \bar{x}_N|| \geq \text{tol}}_{\textcolor{cyan}{\text{(many options)}}}
+    \end{align*}
+\end{itemize}
+\subsection*{Why should ILC work?}
+\begin{itemize}
+    \item We've already seen approximations in Newton's method (e.g. Gauss-Newton)
+    \item In general, these are called ``inexact" and/or ``quasi-Newton" methods. Many variants (BFGS, Newton-CG), well developed theory.
+    \item For a generic root-finding problem:
+    \begin{align*}
+        f(x+\Delta x) \underbrace{f(x) + \frac{\partial f}{\partial x}\Delta x = 0}_{\textcolor{cyan}{\text{exact Newton Step}}}
+    \end{align*}
+    \item As long as $\Delta x$ satisfies:
+    \begin{align*}
+        || f(x) + J\Delta x|| \leq \eta ||f(x)|| \text{ for some } \eta <1,
+        \\
+        \text{an inexact Newton method will converge}
+    \end{align*}
+    \item Convergence is slower than exact Newton
+    \item This means we can use $J\approx \frac{\partial f}{\partial x}$ to compute $\Delta x$
+\end{itemize}
+
+
+
+
+
+\end{document}
